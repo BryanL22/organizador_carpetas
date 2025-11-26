@@ -32,10 +32,7 @@
   .left, .right{
     width:360px;
     min-width:260px;
-    position: sticky;
-    top: 0;
-    z-index: 50;
-  }
+}
 
   .left{flex:1 1 380px; min-width:300px}
   .right{width:360px; min-width:260px}
@@ -193,8 +190,14 @@
   let activeIndex = null;
 
   document.body.addEventListener("touchmove", e=>{
-    if(activeClone) e.preventDefault();
+    if(activeClone) {
+        // permite scroll vertical, bloquea horizontal
+        if (Math.abs(e.touches[0].movementY) < Math.abs(e.touches[0].movementX)) {
+            e.preventDefault();
+        }
+    }
   }, {passive:false});
+
 
   function shuffle(a){
     for(let i=a.length-1;i>0;i--){
