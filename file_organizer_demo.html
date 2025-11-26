@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Organizador — Juego Responsive</title>
+<style>
+  :root{
+    --bg:#0f1720; --card:#0b1220; --accent:#58a6ff; --good:#1bd075; --bad:#ff5c5c;
+    --icon-size:95px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:Inter,Segoe UI,Arial,sans-serif;
+    background:linear-gradient(180deg,#071025,#0f1720);
+    color:#e6eef8; display:flex; flex-direction:column; align-items:center; padding:18px;
+  }
+  h1{margin:6px 0 2px; color:var(--accent); font-weight:700}
+  .controls{display:flex; gap:10px; margin:12px 0; flex-wrap:wrap; justify-content:center}
+  button{background:var(--accent); color:#042038; border:none; padding:10px 14px; border-radius:12px; font-weight:700; cursor:pointer}
+  button.aux{background:#2aa04b; color:white}
+  button.reset{background:#e24b4b}
+  #timer{margin-top:6px; font-weight:700; color:#ffd86b}
+
+  /* Layout */
+  .stage{width:100%; max-width:1100px; display:flex; gap:18px; align-items:flex-start; justify-content:center; flex-wrap:wrap}
+  .left, .right{background:rgba(255,255,255,0.02); border-radius:12px; padding:12px}
+  .left{flex:1 1 380px; min-width:300px}
+  .right{width:360px; min-width:260px}
+
+  /* Pool */
+  #pool{display:grid; grid-template-columns: repeat(auto-fill, minmax(140px,1fr)); gap:8px}
+  .file{
+    background:linear-gradient(180deg,#0f2336,#0b1b2b);
+    border:1px solid rgba(255,255,255,0.04);
+    padding:8px; border-radius:10px;
+    display:flex; gap:10px; align-items:center; justify-content:flex-start;
+    cursor:grab; user-select:none;
+    transition:transform .12s ease, box-shadow .12s;
+    touch-action:none;
+  }
+  .file:active{cursor:grabbing}
+  .file .icon{
+    width:var(--icon-size); height:var(--icon-size); min-width:var(--icon-size);
+    display:flex; align-items:center; justify-content:center; font-size:48px;
+    border-radius:10px; background:linear-gradient(180deg,rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+    box-shadow:0 6px 20px rgba(2,6,12,0.6);
+  }
+  .file .name{font-size:14px; color:#cfe7ff; word-break:break-word}
+
+  /* folders */
+  .folders{display:grid; grid-template-columns:repeat(2,minmax(120px,1fr)); gap:12px}
+  .folder{
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius:12px; padding:12px; min-height:120px; display:flex; flex-direction:column; gap:8px;
+    align-items:center; justify-content:flex-start; border:2px dashed rgba(255,255,255,0.03);
+    transition:transform .12s, border-color .12s;
+  }
+  .folder .title{font-weight:700; color:var(--accent); font-size:16px}
+  .dropzone{width:100%; flex:1; display:flex; flex-direction:column; gap:6px; align-items:center; justify-content:flex-start; padding-top:6px}
+
+  /* responsive */
+  @media(max-width:720px){
+    :root{--icon-size:95px}
+    .file .icon{font-size:40px}
+    .folders{grid-template-columns:repeat(2,1fr)}
+    #pool{grid-template-columns:repeat(2, minmax(120px,1fr))}
+    .right{width:100%}
+  }
+  @media(max-width:420px){
+    :root{--icon-size:80px}
+    .file .icon{font-size:36px}
+    #pool{grid-template-columns:repeat(2, minmax(110px,1fr))}
+  }
+
+  /* feedback */
+  .correct{outline:3px solid rgba(27,208,117,0.18); box-shadow:0 8px 20px rgba(27,208,117,0.06)}
+  .wrong{outline:3px solid rgba(255,92,92,0.16); box-shadow:0 8px 20px rgba(255,92,92,0.04)}
+
+  /* touch-drag clone */
+  .drag-clone{
+    position:fixed; left:0; top:0; pointer-events:none;
+    transform:translate(-9999px,-9999px);
+    z-index:9999; width:calc(var(--icon-size) + 60px);
+    display:flex; gap:10px; align-items:center; padding:8px; border-radius:12px;
+    background:linear-gradient(180deg,#0b2336,#06202b); box-shadow:0 16px 40px rgba(0,0,0,0.6);
+    opacity:0.98;
+  }
+
+  /* auto animate */
+  .fly{
+    transition: transform .6s cubic-bezier(.2,.9,.3,1), opacity .4s;
+  }
+
+  .msg{
+    margin-top:10px; color:#bfe7ff; font-weight:600;
+  }
+</style>
+</head>
+<body>
+
+  <h1>Organizador — Mini juego responsive</h1>
+  <div class="controls">
+    <button id="startBtn">Start</button>
+    <button id="autoBtn" class="aux">Auto-Organize</button>
+    <button id="resetBtn" class="reset">Reset</button>
+  </div>
+  <div id="timer">Tiempo: 0.0 s</div>
+
+  <div class="stage">
+    <div class="left">
+      <h3 style="margin:6px 0 8px;color:#9fd3ff">Files (drag with finger or mouse)</h3>
+      <div id="pool" style="display:block; width:100%">
+        <div id="filesGrid"></div>
+      </div>
+      <div class="msg" id="msgArea"></div>
+    </div>
+
+    <div class="right">
+      <h3 style="margin:6px 0 8px;color:#9fd3ff">Folders</h3>
+      <div class="folders" id="foldersGrid">
+        <div class="folder" data-type="imagen"><div class="title">Images 🖼️</div><div class="dropzone" data-type="imagen"></div></div>
+        <div class="folder" data-type="documento"><div class="title">Docs 📄</div><div class="dropzone" data-type="documento"></div></div>
+        <div class="folder" data-type="musica"><div class="title">Music 🎵</div><div class="dropzone" data-type="musica"></div></div>
+        <div class="folder" data-type="video"><div class="title">Video 🎬</div><div class="dropzone" data-type="video"></div></div>
+        <div class="folder" data-type="zip"><div class="title">ZIP 📦</div><div class="dropzone" data-type="zip"></div></div>
+        <div class="folder" data-type="app"><div class="title">Apps 🛠️</div><div class="dropzone" data-type="app"></div></div>
+      </div>
+    </div>
+  </div>
+
+<!-- clone element used for touch dragging -->
+<div id="dragClone" class="drag-clone" style="display:none"></div>
+
+<script>
+(() => {
+  // BASE FILES
+  const BASE = [
+    {name:"photo_summer.png", type:"imagen", icon:"🖼️"},
+    {name:"portrait.jpg", type:"imagen", icon:"🖼️"},
+    {name:"avatar.webp", type:"imagen", icon:"🖼️"},
+    {name:"essay.docx", type:"documento", icon:"📄"},
+    {name:"thesis.pdf", type:"documento", icon:"📄"},
+    {name:"notes.txt", type:"documento", icon:"📄"},
+    {name:"song_a.mp3", type:"musica", icon:"🎵"},
+    {name:"melody.wav", type:"musica", icon:"🎵"},
+    {name:"podcast.mp3", type:"musica", icon:"🎵"},
+    {name:"clip1.mp4", type:"video", icon:"🎬"},
+    {name:"movie.mov", type:"video", icon:"🎬"},
+    {name:"app_installer.apk", type:"app", icon:"🛠️"},
+    {name:"software.exe", type:"app", icon:"🛠️"},
+    {name:"backup.zip", type:"zip", icon:"📦"},
+    {name:"archive.rar", type:"zip", icon:"📦"}
+  ];
+
+  // State
+  let files = [];
+  let started = false;
+  let timerInterval = null;
+  let startTime = 0;
+  const filesGrid = document.getElementById('filesGrid');
+  const dragClone = document.getElementById('dragClone');
+  const msgArea = document.getElementById('msgArea');
+
+  // UTIL
+  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]] } }
+
+  function formatTime(ms){
+    return (ms/1000).toFixed(1);
+  }
+
+  // RENDER pool
+  function renderPool(){
+    filesGrid.innerHTML = '';
+    files.forEach((f, idx) => {
+      const el = document.createElement('div');
+      el.className = 'file';
+      el.draggable = true;
+      el.dataset.type = f.type;
+      el.dataset.index = idx;
+      el.innerHTML = `<div class="icon">${f.icon}</div><div class="name">${f.name}</div>`;
+      filesGrid.appendChild(el);
+
+      // mouse drag
+      el.addEventListener('dragstart', e=>{
+        e.dataTransfer.setData('text/plain', idx);
+        // visual touch fallback
+        setTimeout(()=> el.style.opacity = '0.6', 0);
+      });
+      el.addEventListener('dragend', ()=> el.style.opacity = '1');
+
+      // touch events
+      el.addEventListener('touchstart', touchStartHandler, {passive:false});
+    });
+  }
+
+  // Start/Reset
+  function startGame(){
+    files = BASE.slice();
+    shuffle(files);
+    renderPool();
+    startTimer();
+    started = true;
+    msgArea.textContent = 'Game started — drag files to folders';
+  }
+
+  function resetGame(){
+    // Stop timer
+    stopTimer();
+    started = false;
+    document.getElementById('timer').textContent = 'Tiempo: 0.0 s';
+    // Clear folders
+    document.querySelectorAll('.dropzone').forEach(z=> z.innerHTML = '');
+    // Reset pool
+    files = BASE.slice();
+    shuffle(files);
+    renderPool();
+    msgArea.textContent = 'Reset done — press Start or Auto-Organize';
+  }
+
+  // Timer
+  function startTimer(){
+    startTime = performance.now();
+    clearInterval(timerInterval);
+    timerInterval = setInterval(()=>{
+      const t = formatTime(performance.now() - startTime);
+      document.getElementById('timer').textContent = 'Tiempo: ' + t + ' s';
+    }, 100);
+  }
+  function stopTimer(){
+    clearInterval(timerInterval);
+  }
+
+  // Drop logic for mouse
+  document.querySelectorAll('.dropzone').forEach(zone=>{
+    zone.addEventListener('dragover', e=> e.preventDefault());
+    zone.addEventListener('drop', e=>{
+      e.preventDefault();
+      const idx = e.dataTransfer.getData('text/plain');
+      if (idx==null) return;
+      const fileEl = document.querySelector(`.file[data-index="${idx}"]`);
+      const fileType = files[idx].type;
+      const zoneType = zone.dataset.type;
+      // find the element if already moved (dataset.index remains)
+      if (fileEl){
+        if (fileType === zoneType){
+          zone.appendChild(fileEl);
+          fileEl.classList.add('correct');
+          checkFinish();
+        } else {
+          fileEl.classList.add('wrong');
+          setTimeout(()=>fileEl.classList.remove('wrong'),600);
+        }
+      }
+    });
+  });
+
+  // TOUCH dragging handlers
+  let activeClone = null;
+  let activeIndex = null;
+  function touchStartHandler(e){
+    e.preventDefault();
+    const touch = e.targetTouches[0];
+    const fileEl = e.currentTarget;
+    activeIndex = fileEl.dataset.index;
+    // create clone
+    activeClone = fileEl.cloneNode(true);
+    activeClone.classList.add('drag-clone');
+    activeClone.style.width = (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--icon-size')) + 80) + 'px';
+    document.body.appendChild(activeClone);
+    dragClone.style.display = 'none'; // keep not using global clone
+    // position it
+    moveClone(activeClone, touch.clientX, touch.clientY);
+    // scale feedback
+    fileEl.style.transform = 'scale(1.05)';
+    // listeners
+    window.addEventListener('touchmove', touchMove);
+    window.addEventListener('touchend', touchEnd);
+  }
+  function moveClone(clone, x, y){
+    clone.style.left = (x - clone.offsetWidth/2) + 'px';
+    clone.style.top = (y - clone.offsetHeight/2) + 'px';
+  }
+  function touchMove(e){
+    e.preventDefault();
+    const t = e.targetTouches[0];
+    if (activeClone) moveClone(activeClone, t.clientX, t.clientY);
+  }
+  function touchEnd(e){
+    e.preventDefault();
+    // find drop target
+    const t = e.changedTouches[0];
+    const el = document.elementFromPoint(t.clientX, t.clientY);
+    let zone = el;
+    // climb to dropzone
+    while(zone && !zone.classList.contains('dropzone')) zone = zone.parentElement;
+    const idx = activeIndex;
+    const fileType = files[idx].type;
+    if (zone){
+      const zoneType = zone.dataset.type;
+      // find original thumbnail in DOM (match data-index)
+      const original = document.querySelector(`.file[data-index="${idx}"]`);
+      if (fileType === zoneType){
+        zone.appendChild(original);
+        original.classList.add('correct');
+        checkFinish();
+      } else {
+        original.classList.add('wrong');
+        setTimeout(()=>original.classList.remove('wrong'),600);
+      }
+    }
+    // cleanup
+    document.body.removeChild(activeClone);
+    activeClone = null;
+    activeIndex = null;
+    window.removeEventListener('touchmove', touchMove);
+    window.removeEventListener('touchend', touchEnd);
+    // reset original transform
+    document.querySelectorAll('.file').forEach(f=> f.style.transform = '');
+  }
+
+  // Auto-organize (works anytime)
+  function autoOrganize(){
+    // ensure pool has files (if not started, create mixed files into pool then animate)
+    if (!files || files.length === 0) {
+      files = BASE.slice();
+      shuffle(files);
+      renderPool();
+    }
+    // start timer
+    startTimer();
+    // grab current .file elements (fresh)
+    const current = Array.from(document.querySelectorAll('.file'));
+    current.forEach((el, i) => {
+      const idx = el.dataset.index;
+      const ftype = files[idx].type;
+      const dest = document.querySelector(`.dropzone[data-type="${ftype}"]`);
+      if (!dest) return;
+      // animate clone flying effect
+      const r = el.getBoundingClientRect();
+      const c = el.cloneNode(true);
+      c.style.position = 'fixed';
+      c.style.left = r.left + 'px';
+      c.style.top = r.top + 'px';
+      c.style.margin = '0';
+      c.classList.add('fly');
+      document.body.appendChild(c);
+      setTimeout(()=>{
+        const dRect = dest.getBoundingClientRect();
+        const dx = dRect.left + dRect.width/2 - (r.left + r.width/2);
+        const dy = dRect.top + dRect.height/2 - (r.top + r.height/2);
+        c.style.transform = `translate(${dx}px, ${dy}px) scale(0.6)`;
+        c.style.opacity = '0.6';
+      }, 20 + i*120);
+      setTimeout(()=>{
+        // append real element
+        if (el.parentElement) { dest.appendChild(el); el.classList.add('correct'); }
+        c.remove();
+        checkFinish();
+      }, 300 + i*120);
+    });
+  }
+
+  // Check finished
+  function checkFinish(){
+    const remaining = document.querySelectorAll('#filesGrid .file').length;
+    const inside = document.querySelectorAll('.dropzone .file').length;
+    const total = files.length;
+    if (inside >= total){
+      stopTimer();
+      const t = formatTime(performance.now() - startTime);
+      msgArea.textContent = `🎉 Done in ${t} s`;
+    }
+  }
+
+  // Buttons
+  document.getElementById('startBtn').addEventListener('click', ()=>{
+    files = BASE.slice(); shuffle(files); renderPool();
+    // assign dataset.index correctly after render
+    document.querySelectorAll('.file').forEach((el, i)=> el.dataset.index = i);
+    startTimer(); started = true; msgArea.textContent = 'Started — drag files';
+  });
+  document.getElementById('resetBtn').addEventListener('click', ()=> {
+    // stop and clear folders
+    stopTimer();
+    started = false;
+    document.getElementById('timer').textContent = 'Tiempo: 0.0 s';
+    document.querySelectorAll('.dropzone').forEach(z=> z.innerHTML = '');
+    // re-create
+    files = BASE.slice(); shuffle(files); renderPool();
+    document.querySelectorAll('.file').forEach((el,i)=> el.dataset.index = i);
+    msgArea.textContent = 'Reset — pool ready';
+  });
+  document.getElementById('autoBtn').addEventListener('click', ()=> {
+    // prepare pool if empty
+    if (!files || files.length===0){ files = BASE.slice(); shuffle(files); renderPool(); document.querySelectorAll('.file').forEach((el,i)=> el.dataset.index = i); }
+    autoOrganize();
+  });
+
+  // expose renderPool for autoOrganize initial created pool
+  function renderPool(){
+    filesGrid.innerHTML = '';
+    files.forEach((f, i) => {
+      const el = document.createElement('div');
+      el.className = 'file';
+      el.draggable = true;
+      el.dataset.type = f.type;
+      el.dataset.index = i;
+      el.innerHTML = `<div class="icon">${f.icon}</div><div class="name">${f.name}</div>`;
+      filesGrid.appendChild(el);
+      // mouse drag
+      el.addEventListener('dragstart', e=> { e.dataTransfer.setData('text/plain', i); setTimeout(()=>el.style.opacity='0.6',0); });
+      el.addEventListener('dragend', ()=> el.style.opacity='1');
+      // touch start
+      el.addEventListener('touchstart', touchStartHandler, {passive:false});
+    });
+  }
+
+  // initial state: show shuffled pool but not started
+  files = BASE.slice(); shuffle(files); renderPool();
+  document.querySelectorAll('.file').forEach((el,i)=> el.dataset.index = i);
+  msgArea.textContent = 'Ready — press Start or Auto-Organize';
+})();
+</script>
+
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
