@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Organizador — Juego Responsive</title>
+
+<style>
+  :root{
+    --bg:#0f1720; --card:#0b1220; --accent:#58a6ff; --good:#1bd075; --bad:#ff5c5c;
+    --icon-size:95px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:Inter,Segoe UI,Arial,sans-serif;
+    background:linear-gradient(180deg,#071025,#0f1720);
+    color:#e6eef8; display:flex; flex-direction:column; align-items:center; padding:18px;
+    overflow-x:hidden;
+  }
+  h1{margin:6px 0 2px; color:var(--accent); font-weight:700}
+  .controls{display:flex; gap:10px; margin:12px 0; flex-wrap:wrap; justify-content:center}
+  button{background:var(--accent); color:#042038; border:none; padding:10px 14px; border-radius:12px; font-weight:700; cursor:pointer}
+  button.aux{background:#2aa04b; color:white}
+  button.reset{background:#e24b4b}
+  #timer{margin-top:6px; font-weight:700; color:#ffd86b}
+
+  .stage{
+    width:100%; max-width:1100px; display:flex; gap:18px;
+    align-items:flex-start; justify-content:center; flex-wrap:wrap;
+  }
+
+  .left, .right{
+    background:rgba(255,255,255,0.02); border-radius:12px; padding:12px;
+  }
+  .left{flex:1 1 380px; min-width:300px}
+  .right{width:360px; min-width:260px}
+
+  /* POOL */
+  #pool{display:grid; grid-template-columns: repeat(auto-fill, minmax(140px,1fr)); gap:8px}
+
+  /* 🔥 ESTE ES EL BLOQUE QUE CAMBIÉ */
+  .file{
+    background:linear-gradient(180deg,#0f2336,#0b1b2b);
+    border:1px solid rgba(255,255,255,0.04);
+    padding:14px;
+    border-radius:10px;
+
+    /* ✔️ AQUÍ SE CAMBIÓ PARA QUE EL TEXTO QUEDE ABAJO */
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+
+    cursor:grab; user-select:none;
+    touch-action:none;
+    transition:transform .12s ease, box-shadow .12s, opacity .12s;
+  }
+
+  .file.is-dragging{
+    transform:scale(1.08);
+    opacity:0.85;
+    box-shadow:0 0 12px rgba(88,166,255,0.6);
+  }
+
+  .file .icon{
+    width:var(--icon-size); height:var(--icon-size); min-width:var(--icon-size);
+    display:flex; align-items:center; justify-content:center; font-size:48px;
+    border-radius:10px; background:linear-gradient(180deg,rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+    box-shadow:0 6px 20px rgba(2,6,12,0.6);
+  }
+
+  .file .name{
+    font-size:14px; color:#cfe7ff; word-break:break-word;
+  }
+
+  .folders{display:grid; grid-template-columns:repeat(2,minmax(120px,1fr)); gap:12px}
+
+  .folder{
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius:12px; padding:12px; min-height:120px; display:flex;
+    flex-direction:column; gap:8px; align-items:center; justify-content:flex-start;
+    border:2px dashed rgba(255,255,255,0.03);
+    transition:transform .12s, border-color .12s, background .12s;
+  }
+
+  .dropzone{
+    width:100%; flex:1; display:flex; flex-direction:column;
+    gap:6px; align-items:center; justify-content:flex-start; padding-top:6px;
+  }
+
+  .dropzone.active{
+    border-color:var(--accent);
+    background:rgba(88,166,255,0.15);
+  }
+
+  @media(max-width:720px){
+    :root{--icon-size:85px}
+    .stage{flex-direction:column;}
+    .right{order:1; width:100%}
+    .left{order:2; width:100%}
+  }
+
+  @media(max-width:420px){
+    :root{--icon-size:75px}
+  }
+
+  .correct{outline:3px solid rgba(27,208,117,0.18);}
+  .wrong{outline:3px solid rgba(255,92,92,0.16);}
+  .msg{margin-top:10px; color:#bfe7ff; font-weight:600}
+
+  .drag-clone{
+    position:fixed; left:0; top:0; pointer-events:none;
+    z-index:9999;
+    display:flex; gap:10px; align-items:center;
+    padding:10px; border-radius:12px;
+    background:linear-gradient(180deg,#0b2336,#06202b); box-shadow:0 16px 40px rgba(0,0,0,0.6);
+    opacity:0.95;
+  }
+</style>
+</head>
+<body>
+
+<h1>Organizador — Mini juego móvil</h1>
+
+<div class="controls">
+  <button id="startBtn">Start</button>
+  <button id="autoBtn" class="aux">Auto-Organize</button>
+  <button id="resetBtn" class="reset">Reset</button>
+</div>
+
+<div id="timer">Tiempo: 0.0 s</div>
+
+<div class="stage">
+
+  <div class="right">
+    <h3 style="margin:6px 0 8px;color:#9fd3ff">Folders</h3>
+    <div class="folders" id="foldersGrid">
+      <div class="folder" data-type="imagen"><div class="title">Images 🖼️</div><div class="dropzone" data-type="imagen"></div></div>
+      <div class="folder" data-type="documento"><div class="title">Docs 📄</div><div class="dropzone" data-type="documento"></div></div>
+      <div class="folder" data-type="musica"><div class="title">Music 🎵</div><div class="dropzone" data-type="musica"></div></div>
+      <div class="folder" data-type="video"><div class="title">Video 🎬</div><div class="dropzone" data-type="video"></div></div>
+      <div class="folder" data-type="zip"><div class="title">ZIP 📦</div><div class="dropzone" data-type="zip"></div></div>
+      <div class="folder" data-type="app"><div class="title">Apps 🛠️</div><div class="dropzone" data-type="app"></div></div>
+    </div>
+  </div>
+
+  <div class="left">
+    <h3 style="margin:6px 0 8px;color:#9fd3ff">Files (arrastra con el dedo)</h3>
+    <div id="pool"><div id="filesGrid"></div></div>
+    <div class="msg" id="msgArea"></div>
+  </div>
+
+</div>
+
+<div id="dragClone" class="drag-clone" style="display:none"></div>
+
+<script>
+(() => {
+
+  const BASE = [
+    {name:"photo_summer.png", type:"imagen", icon:"🖼️"},
+    {name:"portrait.jpg", type:"imagen", icon:"🖼️"},
+    {name:"avatar.webp", type:"imagen", icon:"🖼️"},
+    {name:"essay.docx", type:"documento", icon:"📄"},
+    {name:"thesis.pdf", type:"documento", icon:"📄"},
+    {name:"notes.txt", type:"documento", icon:"📄"},
+    {name:"song_a.mp3", type:"musica", icon:"🎵"},
+    {name:"melody.wav", type:"musica", icon:"🎵"},
+    {name:"podcast.mp3", type:"musica", icon:"🎵"},
+    {name:"clip1.mp4", type:"video", icon:"🎬"},
+    {name:"movie.mov", type:"video", icon:"🎬"},
+    {name:"app_installer.apk", type:"app", icon:"🛠️"},
+    {name:"software.exe", type:"app", icon:"🛠️"},
+    {name:"backup.zip", type:"zip", icon:"📦"},
+    {name:"archive.rar", type:"zip", icon:"📦"}
+  ];
+
+  let files = [];
+  let startTime = 0;
+  let timerInterval = null;
+
+  const filesGrid = document.getElementById("filesGrid");
+  const msgArea   = document.getElementById("msgArea");
+
+  let activeClone = null;
+  let activeIndex = null;
+
+  document.body.addEventListener("touchmove", e=>{
+    if(activeClone) e.preventDefault();
+  }, {passive:false});
+
+  function shuffle(a){
+    for(let i=a.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [a[i],a[j]]=[a[j],a[i]];
+    }
+  }
+
+  function formatTime(ms){ return (ms/1000).toFixed(1); }
+
+  function renderPool(){
+    filesGrid.innerHTML = "";
+    files.forEach((f,i)=>{
+      const el = document.createElement("div");
+      el.className = "file";
+      el.draggable = true;
+      el.dataset.index = i;
+      el.dataset.type  = f.type;
+      el.innerHTML = `<div class="icon">${f.icon}</div><div class="name">${f.name}</div>`;
+      filesGrid.appendChild(el);
+
+      el.addEventListener("dragstart", e=>{
+        e.dataTransfer.setData("text/plain", i);
+        el.style.opacity = "0.6";
+      });
+      el.addEventListener("dragend", ()=> el.style.opacity = "1");
+
+      el.addEventListener("touchstart", touchStartHandler, {passive:false});
+    });
+  }
+
+  function touchStartHandler(e){
+    e.preventDefault();
+    const fileEl = e.currentTarget;
+    const t = e.targetTouches[0];
+
+    activeIndex = fileEl.dataset.index;
+    fileEl.classList.add("is-dragging");
+
+    activeClone = fileEl.cloneNode(true);
+    activeClone.classList.add("drag-clone");
+    document.body.appendChild(activeClone);
+
+    moveClone(activeClone, t.clientX, t.clientY);
+
+    window.addEventListener("touchmove", touchMove);
+    window.addEventListener("touchend",  touchEnd);
+  }
+
+  function moveClone(c,x,y){
+    c.style.left = x - c.offsetWidth/2 + "px";
+    c.style.top  = y - c.offsetHeight/2 + "px";
+  }
+
+  function touchMove(e){
+    e.preventDefault();
+    const t = e.targetTouches[0];
+    moveClone(activeClone, t.clientX, t.clientY);
+
+    let el = document.elementFromPoint(t.clientX, t.clientY);
+    document.querySelectorAll(".dropzone").forEach(z=> z.classList.remove("active"));
+    while(el && !el.classList?.contains("dropzone")) el = el.parentElement;
+    if(el) el.classList.add("active");
+  }
+
+  function touchEnd(e){
+    e.preventDefault();
+    const t = e.changedTouches[0];
+
+    let zone = document.elementFromPoint(t.clientX, t.clientY);
+    while(zone && !zone.classList?.contains("dropzone"))
+      zone = zone.parentElement;
+
+    const original = document.querySelector(`.file[data-index="${activeIndex}"]`);
+    original.classList.remove("is-dragging");
+
+    if(zone){
+      const typeFile = files[activeIndex].type;
+      const typeZone = zone.dataset.type;
+
+      if(typeFile === typeZone){
+        zone.appendChild(original);
+        original.classList.add("correct");
+        checkFinish();
+      } else {
+        original.classList.add("wrong");
+        setTimeout(()=>original.classList.remove("wrong"),700);
+      }
+    }
+
+    document.querySelectorAll(".dropzone").forEach(z=> z.classList.remove("active"));
+    activeClone.remove();
+    activeClone = null;
+    activeIndex = null;
+
+    window.removeEventListener("touchmove", touchMove);
+    window.removeEventListener("touchend", touchEnd);
+  }
+
+  document.querySelectorAll(".dropzone").forEach(zone=>{
+    zone.addEventListener("dragover", e=>e.preventDefault());
+    zone.addEventListener("drop", e=>{
+      e.preventDefault();
+      const idx = e.dataTransfer.getData("text/plain");
+      const original = document.querySelector(`.file[data-index="${idx}"]`);
+      const typeFile = files[idx].type;
+      const typeZone = zone.dataset.type;
+
+      if(typeFile === typeZone){
+        zone.appendChild(original);
+        original.classList.add("correct");
+        checkFinish();
+      } else {
+        original.classList.add("wrong");
+        setTimeout(()=>original.classList.remove("wrong"),700);
+      }
+    });
+  });
+
+  function startTimer(){
+    startTime = performance.now();
+    clearInterval(timerInterval);
+    timerInterval = setInterval(()=>{
+      document.getElementById("timer").textContent =
+        "Tiempo: " + formatTime(performance.now() - startTime) + " s";
+    },130);
+  }
+  function stopTimer(){ clearInterval(timerInterval); }
+
+  function checkFinish(){
+    const inside = document.querySelectorAll(".dropzone .file").length;
+    if(inside >= files.length){
+      stopTimer();
+      msgArea.textContent = "🎉 ¡Completado en " + formatTime(performance.now() - startTime) + " s!";
+    }
+  }
+
+  document.getElementById("startBtn").onclick = ()=>{
+    files = BASE.slice(); shuffle(files); renderPool();
+    startTimer();
+    msgArea.textContent = "Arrastra los archivos a su carpeta correcta";
+  };
+
+  document.getElementById("resetBtn").onclick = ()=>{
+    stopTimer();
+    msgArea.textContent = "Reiniciado";
+    document.getElementById("timer").textContent = "Tiempo: 0.0 s";
+    document.querySelectorAll(".dropzone").forEach(z=>z.innerHTML="");
+    files = BASE.slice(); shuffle(files); renderPool();
+  };
+
+  document.getElementById("autoBtn").onclick = ()=>{
+    files = BASE.slice(); shuffle(files); renderPool();
+    startTimer();
+    autoOrganize();
+  };
+
+  function autoOrganize(){
+    const list = Array.from(document.querySelectorAll(".file"));
+    list.forEach((el,i)=>{
+      const idx = el.dataset.index;
+      const type = files[idx].type;
+      const dest = document.querySelector(`.dropzone[data-type="${type}"]`);
+
+      setTimeout(()=>{
+        dest.appendChild(el);
+        el.classList.add("correct");
+        checkFinish();
+      },100*i);
+    });
+  }
+
+  files = BASE.slice(); shuffle(files); renderPool();
+  msgArea.textContent = "Ready — Presiona Start";
+
+})();
+</script>
+
+</body>
+</html>
