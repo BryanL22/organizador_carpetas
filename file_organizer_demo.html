@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Mini Juego: Organiza Archivos</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #0d1117;
+        color: white;
+        margin: 0;
+        padding: 20px;
+        text-align: center;
+    }
+
+    h1 { color: #58a6ff; }
+
+    #timer {
+        font-size: 24px;
+        color: #ffd700;
+        margin-bottom: 12px;
+    }
+
+    .container {
+        display: flex;
+        justify-content: center;
+        gap: 40px;
+        margin-top: 30px;
+        flex-wrap: wrap;
+    }
+
+    .folder {
+        width: 160px;
+        min-height: 150px;
+        border: 2px solid #444;
+        background: #161b22;
+        padding: 10px;
+        border-radius: 12px;
+    }
+
+    .folder h3 {
+        color: #58a6ff;
+        margin-bottom: 10px;
+    }
+
+    .file {
+        padding: 8px;
+        background: #21262d;
+        margin: 6px;
+        border-radius: 6px;
+        border: 1px solid #444;
+        display: inline-block;
+        cursor: grab;
+        transition: 0.2s;
+    }
+
+    .file:active { transform: scale(1.1); }
+
+    .correct { background: rgba(0, 255, 0, 0.4) !important; }
+    .incorrect { background: rgba(255, 0, 0, 0.4) !important; }
+
+    .btn {
+        padding: 12px 20px;
+        font-size: 16px;
+        margin: 10px;
+        border-radius: 10px;
+        cursor: pointer;
+        border: none;
+        font-weight: bold;
+    }
+
+    #startBtn { background: #58a6ff; color: white; }
+    #autoSort { background: #238636; color: white; }
+    #resetBtn { background: #da3633; color: white; }
+
+    @keyframes moveToFolder {
+        from { opacity: 1; transform: scale(1); }
+        to { opacity: 0.2; transform: scale(0.4); }
+    }
+    .auto-moving { animation: moveToFolder 0.3s ease-out; }
+</style>
+</head>
+<body>
+
+<h1>Mini Juego: Organiza los Archivos</h1>
+<div id="timer">Tiempo: 0.0 s</div>
+
+<button id="startBtn" class="btn">Iniciar Juego</button>
+<button id="autoSort" class="btn">Organizar Automáticamente</button>
+<button id="resetBtn" class="btn">Reset</button>
+
+<div class="container">
+    <div class="folder" data-type="imagen"><h3>Imágenes 🖼️</h3></div>
+    <div class="folder" data-type="documento"><h3>Documentos 📄</h3></div>
+    <div class="folder" data-type="musica"><h3>Música 🎵</h3></div>
+    <div class="folder" data-type="video"><h3>Videos 🎬</h3></div>
+    <div class="folder" data-type="zip"><h3>ZIP 📦</h3></div>
+    <div class="folder" data-type="app"><h3>Apps 🛠️</h3></div>
+</div>
+
+<h2>Archivos</h2>
+<div id="filesArea"></div>
+
+<script>
+/* Lista base */
+const baseFiles = [
+    { name: "foto1.png", type: "imagen" },
+    { name: "foto2.jpg", type: "imagen" },
+    { name: "retrato.webp", type: "imagen" },
+    { name: "documento.pdf", type: "documento" },
+    { name: "informe.docx", type: "documento" },
+    { name: "musica1.mp3", type: "musica" },
+    { name: "musica2.wav", type: "musica" },
+    { name: "video1.mp4", type: "video" },
+    { name: "video2.mov", type: "video" },
+    { name: "app.apk", type: "app" },
+    { name: "juego.exe", type: "app" },
+    { name: "archivo.zip", type: "zip" },
+    { name: "proyecto.rar", type: "zip" }
+];
+
+let filesData = [];
+let dragging = null;
+let startTime = null;
+let interval = null;
+let gameStarted = false;
+
+/* Utilidades */
+function shuffle(arr){
+    for (let i = arr.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random() * (i+1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+}
+
+/* Iconos */
+function getIcon(type){
+    return {
+        imagen: "🖼️",
+        documento: "📄",
+        musica: "🎵",
+        video: "🎬",
+        zip: "📦",
+        app: "🛠️"
+    }[type];
+}
+
+/* Crear archivos */
+function loadFiles(){
+    const area = document.getElementById("filesArea");
+    area.innerHTML = "";
+
+    filesData.forEach(file => {
+        const div = document.createElement("div");
+        div.className = "file";
+        div.dataset.type = file.type;
+        div.textContent = getIcon(file.type) + " " + file.name;
+        div.draggable = true;
+
+        div.addEventListener("dragstart", () => dragging = div);
+
+        area.appendChild(div);
+    });
+}
+
+/* Reset total */
+function resetGame(){
+    stopTimer();
+    document.getElementById("timer").textContent = "Tiempo: 0.0 s";
+    gameStarted = false;
+
+    // Vaciar carpetas
+    document.querySelectorAll(".folder").forEach(folder => folder.innerHTML = "<h3>" + folder.querySelector("h3").textContent + "</h3>");
+
+    // Restaurar archivos mezclados
+    filesData = [...baseFiles];
+    shuffle(filesData);
+    loadFiles();
+}
+
+/* Drag & Drop */
+document.querySelectorAll(".folder").forEach(folder => {
+    folder.addEventListener("dragover", e => e.preventDefault());
+
+    folder.addEventListener("drop", () => {
+        if (!dragging || !gameStarted) return;
+
+        if (dragging.dataset.type === folder.dataset.type){
+            folder.appendChild(dragging);
+            dragging.classList.add("correct");
+            checkWin();
+        } else {
+            dragging.classList.add("incorrect");
+            setTimeout(() => dragging.classList.remove("incorrect"), 600);
+        }
+    });
+});
+
+/* Auto organizar SIN START */
+function autoSort(){
+    gameStarted = true;
+
+    filesData = [...baseFiles];
+    shuffle(filesData);
+    loadFiles();
+
+    stopTimer();
+    startTimer();
+
+    const files = document.querySelectorAll(".file");
+
+    files.forEach((file, i) => {
+        const folder = document.querySelector(`.folder[data-type="${file.dataset.type}"]`);
+
+        setTimeout(() => {
+            file.classList.add("auto-moving");
+            setTimeout(() => {
+                folder.appendChild(file);
+                file.classList.add("correct");
+                checkWin();
+            }, 250);
+        }, i * 200);
+    });
+}
+
+/* Timer */
+function startTimer(){
+    startTime = Date.now();
+    clearInterval(interval);
+    interval = setInterval(() => {
+        const t = ((Date.now() - startTime)/1000).toFixed(1);
+        document.getElementById("timer").textContent = "Tiempo: " + t + " s";
+    }, 100);
+}
+function stopTimer(){ clearInterval(interval); }
+
+/* Ganar */
+function checkWin(){
+    const all = [...document.querySelectorAll(".file")];
+    const allInside = all.every(f => f.parentElement.classList.contains("folder"));
+    if (allInside) stopTimer();
+}
+
+/* Botones */
+document.getElementById("startBtn").onclick = () => {
+    gameStarted = true;
+    filesData = [...baseFiles];
+    shuffle(filesData);
+    loadFiles();
+    startTimer();
+};
+
+document.getElementById("autoSort").onclick = autoSort;
+
+document.getElementById("resetBtn").onclick = resetGame;
+</script>
+
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
